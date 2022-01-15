@@ -20,6 +20,6 @@
     "typescript": "^4.5.4"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/tests.js"
   }
 }
