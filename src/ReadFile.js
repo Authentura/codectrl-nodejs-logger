@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-export function ReadFileLines(filename, line_no) {
+module.exports.ReadFileLines = function (filename, line_no) {
   var data = fs.readFileSync(filename, "utf8");
   var lines = data.split("\n");
 
@@ -8,4 +8,4 @@ export function ReadFileLines(filename, line_no) {
     return "";
   }
   return lines[+line_no];
-}
+};
