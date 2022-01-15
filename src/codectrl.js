@@ -1,7 +1,7 @@
 const StackTrace = require("stacktrace-js");
 const cbor = require("cbor");
 const assert = require("assert");
-const socket = require("net").Socket();
+const net = require("net");
 const fs = require("fs");
 
 let encoded = cbor.encode(true);
@@ -11,7 +11,7 @@ cbor.decodeFirst(encoded, (error, obj) => {
 
 module.exports.log = async function (...args) {
   let appHost = "127.0.0.1";
-  let appPort = "3001";
+  let appPort = 3001;
   let appSurround = 3;
 
   if ({ host }) {
@@ -63,7 +63,7 @@ module.exports.log = async function (...args) {
     };
 
     encoded = cbor.encode(obj);
-    sendData(encoded, appPort);
+    connectSocket(appPort, appHost, encoded);
   };
 
   const errback = function (err) {
@@ -93,8 +93,23 @@ const buildStack = (stackTrace) => {
   };
 };
 
-const sendData = async (data, port) => {
-  socket.connect(port);
-  socket.write(data);
-  socket.end();
+const connectSocket = (port, ip, message) => {
+  const client = new net.Socket();
+
+  client.connect(port, ip, function () {
+    client.write(message);
+    client.end();
+  });
+
+  client.on("data", function (data) {
+    client.destroy();
+  });
+
+  client.on("close", function () {
+    console.log("Connection closed");
+  });
+
+  client.on("error", function (error) {
+    console.log(`[codeCTRL] Could not reach codeCTRL server. ${error}`);
+  });
 };
