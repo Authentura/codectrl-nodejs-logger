@@ -7,18 +7,9 @@
   "author": "pwnctrl",
   "license": "MIT",
   "dependencies": {
-    "@stdlib/error-to-json": "^0.0.6",
-    "@types/stack-trace": "^0.0.29",
     "cbor": "^8.1.0",
-    "json": "^11.0.0",
-    "nthline": "^1.0.2",
     "stack-trace": "^1.0.0-pre1",
-    "stacktrace-js": "^2.0.2",
-    "string": "^3.3.3",
-    "traceable": "^0.2.4",
-    "traceback": "^0.3.1",
-    "ts-node": "^10.4.0",
-    "typescript": "^4.5.4"
+    "stacktrace-js": "^2.0.2"
   },
   "scripts": {
     "start": "node src/tests.js"
