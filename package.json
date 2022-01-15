@@ -1,0 +1,12 @@
+{
+  "name": "codectrl-nodejs-logger",
+  "version": "1.0.0",
+  "description": "codectrl nodejs logger",
+  "main": "index.js",
+  "repository": "https://github.com/pwnCTRL/codectrl-nodejs-logger.git",
+  "author": "pwnctrl",
+  "license": "MIT",
+  "dependencies": {
+    "cbor": "^8.1.0"
+  }
+}
