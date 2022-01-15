@@ -24,9 +24,9 @@ module.exports.log = async function (...args) {
   const messageBody_type = typeof messageBody;
 
   const callback = function (stackframes) {
-    const LineNumber = stackframes[1].lineNumber;
-    const firstLine = LineNumber;
-    const lastLine = LineNumber + appSurround;
+    let LineNumber = stackframes[1].lineNumber;
+    let firstLine = LineNumber;
+    let lastLine = LineNumber + appSurround;
 
     if (LineNumber >= appSurround) {
       firstLine = LineNumber - appSurround;
