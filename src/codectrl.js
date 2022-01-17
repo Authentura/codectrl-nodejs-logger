@@ -66,7 +66,7 @@ module.exports.log = async function (...args) {
 
     for (let i = firstLine; i < lastLine; i++) {
       let file_line = ReadFileLines(stackframes[1].fileName, i);
-      code_lines[i] = file_line.toString();
+      code_lines[i] = file_line;
     }
     const finalstack = buildStack(
       stackframes[1],
@@ -88,8 +88,10 @@ module.exports.log = async function (...args) {
     connectSocket(appPort, appHost, encoded);
   };
 
+  let issues = [];
+
   const errback = function (err) {
-    console.log(err.message);
+    issues.push(err.message);
   };
 
   StackTrace.get().then(callback).catch(errback);

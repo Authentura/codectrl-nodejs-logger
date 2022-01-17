@@ -7,8 +7,10 @@ const codectrlLogtest = () => {
     "messaet to display 1",
     "test",
     (host = "127.0.0.1"),
-    (helo = "sdflk")
+    (helo = "sdflk"),
+    (surround = 2)
   );
 };
 
+codectrlLogtest();
 codectrlLogtest();
