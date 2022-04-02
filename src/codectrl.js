@@ -82,6 +82,7 @@ module.exports.log = async function (...args) {
       stack: [finalstack],
       warnings: [],
       address: "127.0.0.1",
+      language: "nodejs",
     };
 
     encoded = cbor.encode(obj);
