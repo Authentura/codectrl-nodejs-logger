@@ -37,7 +37,7 @@
     "no-shadow": "off",
     "quotes": [
       "warn",
-      "single"
+      "double"
     ],
     "@typescript-eslint/no-shadow": [
       "warn",

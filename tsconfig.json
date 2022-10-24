@@ -21,6 +21,7 @@
     "traceResolution": false,
     "listEmittedFiles": false,
     "listFiles": false,
+    "allowJs": true,
     "pretty": true,
     "lib": [
       "es2017"
@@ -34,10 +35,12 @@
     ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.js"
   ],
   "exclude": [
     "node_modules/**"
   ],
-  "compileOnSave": false
+  "compileOnSave": true
 }
