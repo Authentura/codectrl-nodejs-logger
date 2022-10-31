@@ -1,4 +1,4 @@
-import { BacktraceData } from "../protos/backtrace_data_pb";
-import { Log } from "../protos/log_pb";
+import { BacktraceData } from "../protos/backtrace_data.js";
+import { Log } from "../protos/log.js";
 
 export { Log, BacktraceData };

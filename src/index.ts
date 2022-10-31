@@ -1,2 +1,2 @@
-export * from "./lib/logger";
-export * from "./lib/data";
+export { Logger } from "./lib/logger.js";
+export { Log, BacktraceData } from "./lib/data.js";

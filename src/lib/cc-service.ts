@@ -1,4 +1,4 @@
-import { LogClientClient as LoggerClient } from "../protos/Cc_serviceServiceClientPb";
-import { RequestResult } from "../protos/cc_service_pb";
+import { LogClientClient as LogClient } from "../protos/cc_service.client.js";
+import { RequestResult, RequestStatus } from "../protos/cc_service.js";
 
-export { LoggerClient, RequestResult };
+export { RequestResult, RequestStatus, LogClient };

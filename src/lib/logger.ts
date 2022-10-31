@@ -1,58 +1,87 @@
-import { BacktraceData, Log } from "./data";
+import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
+import { GrpcTransport } from "@protobuf-ts/grpc-transport";
+import callsites from "callsites";
 
-function createLog<T extends string>(
+import { LogClient, RequestResult } from "./cc-service.js";
+import { BacktraceData, Log } from "./data.js";
+
+function createLog<T extends { toString: () => string }>(
   message: T,
-  surround: number,
-  _functionName?: string,
-  _functionNameOccurences?: string
+  _surround: number
 ): Log {
-  const functionName = _functionName ?? "";
-  const log = new Log();
+  const log = <Log>{
+    uuid: "",
+    stack: [] as BacktraceData[],
+    lineNumber: 0,
+    codeSnippet: {},
+    message: message.toString(),
+    messageType: typeof message,
+    fileName: "",
+    address: "",
+    language: "JavaScript",
+    warnings: [] as string[],
+  };
 
-  log.setMessage(message);
-  log.setMessagetype(typeof message);
-  log.setLanguage("JavaScript");
+  Logger.getStackTrace(log);
+
+  const last = log.stack.pop();
+  if (last) {
+    log.lineNumber = last.lineNumber;
+    log.fileName = last.filePath;
+    log.stack.push(last);
+  }
 
   return log;
 }
 
-class Logger {
-  public static log<T extends string>(
+export class Logger {
+  public static async log<T extends { toString: () => string }>(
     message: T,
     _surround?: number,
     _host?: string,
     _port?: string
-  ) {
+  ): Promise<RequestResult> {
     const surround = _surround ?? 3;
     const host = _host ?? "127.0.0.1";
     const port = _port ?? "3002";
 
     const log = createLog(message, surround);
+
+    const transport = new GrpcTransport({
+      host: `${host}:${port}`,
+      channelCredentials: ChannelCredentials.createInsecure(),
+    });
+    const client = new LogClient(transport);
+    const result = await client.sendLog(log).response;
+
+    return result;
   }
 
   public static getStackTrace(log: Log) {
-    const dummy = new Error();
-    const traces: NodeJS.CallSite[] = [];
-    const origPrepareStackTrace = Error.prepareStackTrace;
+    Error.stackTraceLimit = Infinity;
 
-    Error.prepareStackTrace = (_, stacktraces) => {
-      traces.concat(stacktraces);
-    };
+    const stacklist: BacktraceData[] = [];
 
-    Error.captureStackTrace(dummy, Logger.getStackTrace);
+    callsites().forEach((trace, _index, _arr) => {
+      const fileName = trace.getFileName();
+      const methodName = trace.getMethodName();
+      console.log(methodName);
 
-    Error.prepareStackTrace = origPrepareStackTrace;
-
-    traces.forEach((trace, _index, _arr) => {
-      const backtrace = new BacktraceData();
-      backtrace.setFilepath(trace.getFileName() ?? "");
-      backtrace.setLinenumber(trace.getLineNumber() ?? 0);
-      backtrace.setColumnnumber(trace.getColumnNumber() ?? 0);
-      backtrace.setName(trace.getMethodName() ?? "");
-
-      log.getStackList().unshift(backtrace);
+      if (
+        methodName &&
+        fileName &&
+        !(methodName == "getStackTrace" || methodName == "log") &&
+        !(fileName.includes("/ava/") || fileName.startsWith("node:"))
+      ) {
+        stacklist.unshift(<BacktraceData>{
+          filePath: fileName?.replace("file://", ""),
+          lineNumber: trace.getLineNumber() ?? 0,
+          columnNumber: trace.getColumnNumber() ?? 0,
+          name: methodName,
+        });
+      }
     });
+
+    log.stack = stacklist;
   }
 }
-
-export { Logger };
