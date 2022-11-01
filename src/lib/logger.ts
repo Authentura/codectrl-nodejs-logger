@@ -1,6 +1,7 @@
 import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
 
 import { findSourceMap } from "module";
+import * as fs from "node:fs";
 
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
@@ -79,11 +80,7 @@ export class Logger {
           functionName === "log" ||
           functionName === "createLog"
         ) &&
-        !(
-          fileName.includes("/ava/") ||
-          fileName.startsWith("node:") ||
-          fileName.includes("node_modules")
-        )
+        !(fileName.startsWith("node:") || fileName.includes("node_modules"))
       ) {
         const sourceMap = findSourceMap(fileName);
 
@@ -101,15 +98,24 @@ export class Logger {
           fileName = originalFileName ?? fileName;
         }
 
+        fileName = fileName.replace("file://", "");
+
         stacklist.unshift(<BacktraceData>{
-          filePath: fileName?.replace("file://", ""),
+          filePath: fileName,
           lineNumber: line,
           columnNumber: column,
           name: functionName,
+          code: this.getCode(fileName, line - 1),
         });
       }
     });
 
     log.stack = stacklist;
+  }
+
+  static getCode(filePath: string, lineNumber: number): string {
+    const file = fs.readFileSync(filePath, "utf8");
+
+    return file.split("\n")[lineNumber].trim();
   }
 }
