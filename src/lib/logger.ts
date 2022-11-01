@@ -126,7 +126,9 @@ export class Logger {
         });
 
         if (originalFileName) {
-          log.language = "TypeScript";
+          // whenever syntect gets support for TypeScript syntax highlighting, uncomment
+          // this for "TypeScript". For now, use default "JavaScript".
+          // log.language = "TypeScript";
           fileName = originalFileName ?? fileName;
         }
 
