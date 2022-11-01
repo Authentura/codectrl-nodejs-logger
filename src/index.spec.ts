@@ -20,7 +20,7 @@ async function logLayerOne() {
   return await logLayerTwo();
 }
 
-test("Send single log", async (t) => {
+test("Logger.log", async (t) => {
   const result = await logLayerOne();
 
   if (result.status === RequestStatus.ERROR) {
@@ -28,4 +28,34 @@ test("Send single log", async (t) => {
   }
 
   t.pass(result.message);
+});
+
+async function logIfLayerFinal() {
+  return await Logger.logIf(() => {
+    return true;
+  }, "LogIf");
+}
+
+async function logIfLayerThree() {
+  return await logIfLayerFinal();
+}
+
+async function logIfLayerTwo() {
+  return await logIfLayerThree();
+}
+
+async function logIfLayerOne() {
+  return await logIfLayerTwo();
+}
+
+test("Logger.logIf", async (t) => {
+  const result = await logIfLayerOne();
+
+  if (result && result.status === RequestStatus.ERROR) {
+    t.fail(result.message);
+  } else if (!result) {
+    t.fail("Condition was not true");
+  }
+
+  t.pass(result?.message);
 });

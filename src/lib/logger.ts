@@ -63,6 +63,22 @@ export class Logger {
     return result;
   }
 
+  public static async logIf<T extends { toString: () => string }>(
+    condition: () => boolean,
+    message: T,
+    surround?: number,
+    host?: string,
+    port?: string
+  ): Promise<RequestResult | null> {
+    if (condition()) {
+      return await this.log(message, surround, host, port);
+    }
+
+    return new Promise(() => {
+      return;
+    });
+  }
+
   public static getStackTrace(log: Log) {
     Error.stackTraceLimit = Infinity;
 
@@ -78,6 +94,7 @@ export class Logger {
         !(
           functionName === "getStackTrace" ||
           functionName === "log" ||
+          functionName === "logIf" ||
           functionName === "createLog"
         ) &&
         !(fileName.startsWith("node:") || fileName.includes("node_modules"))
