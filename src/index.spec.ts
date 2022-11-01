@@ -33,7 +33,7 @@ test("Logger.log", async (t) => {
 async function logIfLayerFinal() {
   return await Logger.logIf(() => {
     return true;
-  }, "LogIf");
+  }, "Log if");
 }
 
 async function logIfLayerThree() {
