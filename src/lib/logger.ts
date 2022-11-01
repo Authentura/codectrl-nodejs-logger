@@ -1,8 +1,7 @@
-import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
-
 import { findSourceMap } from "module";
 import * as fs from "node:fs";
 
+import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
 
