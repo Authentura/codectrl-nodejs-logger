@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
+import { MultiSet } from "mnemonist";
 
 import { translate } from "../third-party/line-numbers.js";
 
@@ -12,8 +13,12 @@ import { BacktraceData, Log } from "./data.js";
 
 function createLog<T extends { toString: () => string }>(
   message: T,
-  _surround: number
+  _surround: number,
+  functionName?: string,
+  functionNameOccurences?: MultiSet<string>
 ): Log {
+  functionName = functionName ?? "";
+
   const log = <Log>{
     uuid: "",
     stack: [] as BacktraceData[],
@@ -33,6 +38,15 @@ function createLog<T extends { toString: () => string }>(
   if (last) {
     log.lineNumber = last.lineNumber;
     log.fileName = last.filePath;
+
+    log.codeSnippet = Logger.getCodeSnippet(
+      last.filePath,
+      last.lineNumber,
+      _surround,
+      functionName,
+      functionNameOccurences
+    );
+
     log.stack.push(last);
   }
 
@@ -151,5 +165,32 @@ export class Logger {
     const file = fs.readFileSync(filePath, "utf8");
 
     return file.split("\n")[lineNumber].trim();
+  }
+
+  static getCodeSnippet(
+    filePath: string,
+    lineNumber: number,
+    surround: number,
+    functionName: string,
+    functionNameOccurences?: MultiSet<string>
+  ): { [key: number]: string } {
+    const file = fs.readFileSync(filePath, "utf8");
+    const fileData = file.split("\n");
+
+    const lines: { [key: number]: string } = {};
+
+    fileData.forEach((line, _lineNumber, _) => {
+      lines[_lineNumber + 1] = line;
+    });
+
+    // TODO: for batch log sending
+    if (functionNameOccurences) {
+      if (functionName && functionName !== "") {
+        const offset = 1;
+        const occurences = functionNameOccurences.multiplicity(functionName);
+      }
+    }
+
+    return lines;
   }
 }
