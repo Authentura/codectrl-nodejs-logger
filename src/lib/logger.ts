@@ -1,6 +1,11 @@
 import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
+
+import { findSourceMap } from "module";
+
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
+
+import { translate } from "../third-party/line-numbers.js";
 
 import { LogClient, RequestResult } from "./cc-service.js";
 import { BacktraceData, Log } from "./data.js";
@@ -63,21 +68,44 @@ export class Logger {
     const stacklist: BacktraceData[] = [];
 
     callsites().forEach((trace, _index, _arr) => {
-      const fileName = trace.getFileName();
-      const methodName = trace.getMethodName();
-      console.log(methodName);
+      let fileName = trace.getFileName();
+      const functionName = trace.getFunctionName();
 
       if (
-        methodName &&
+        functionName &&
         fileName &&
-        !(methodName == "getStackTrace" || methodName == "log") &&
-        !(fileName.includes("/ava/") || fileName.startsWith("node:"))
+        !(
+          functionName === "getStackTrace" ||
+          functionName === "log" ||
+          functionName === "createLog"
+        ) &&
+        !(
+          fileName.includes("/ava/") ||
+          fileName.startsWith("node:") ||
+          fileName.includes("node_modules")
+        )
       ) {
+        const sourceMap = findSourceMap(fileName);
+
+        const {
+          fileName: originalFileName,
+          line,
+          column,
+        } = translate(sourceMap, {
+          line: trace.getLineNumber() ?? 0,
+          column: trace.getColumnNumber() ?? 0,
+        });
+
+        if (originalFileName) {
+          log.language = "TypeScript";
+          fileName = originalFileName ?? fileName;
+        }
+
         stacklist.unshift(<BacktraceData>{
           filePath: fileName?.replace("file://", ""),
-          lineNumber: trace.getLineNumber() ?? 0,
-          columnNumber: trace.getColumnNumber() ?? 0,
-          name: methodName,
+          lineNumber: line,
+          columnNumber: column,
+          name: functionName,
         });
       }
     });

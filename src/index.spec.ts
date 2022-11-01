@@ -4,10 +4,26 @@ import { RequestStatus } from "./lib/cc-service.js";
 
 import { Logger } from "./index.js";
 
-test("Send single log", async (t) => {
-  const result = await Logger.log("Hello, world!");
+async function logLayerFinal() {
+  return await Logger.log("Hello, world!");
+}
 
-  if (result.status == RequestStatus.ERROR) {
+async function logLayerThree() {
+  return await logLayerFinal();
+}
+
+async function logLayerTwo() {
+  return await logLayerThree();
+}
+
+async function logLayerOne() {
+  return await logLayerTwo();
+}
+
+test("Send single log", async (t) => {
+  const result = await logLayerOne();
+
+  if (result.status === RequestStatus.ERROR) {
     t.fail(result.message);
   }
 
