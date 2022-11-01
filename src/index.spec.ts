@@ -59,3 +59,31 @@ test("Logger.logIf", async (t) => {
 
   t.pass(result?.message);
 });
+
+async function logWhenEnvLayerFinal() {
+  return await Logger.logWhenEnv("Log when env");
+}
+
+async function logWhenEnvLayerThree() {
+  return await logWhenEnvLayerFinal();
+}
+
+async function logWhenEnvLayerTwo() {
+  return await logWhenEnvLayerThree();
+}
+
+async function logWhenEnvLayerOne() {
+  return await logWhenEnvLayerTwo();
+}
+
+test("Logger.logWhenEnv", async (t) => {
+  const result = await logWhenEnvLayerOne();
+
+  if (result && result.status === RequestStatus.ERROR) {
+    t.fail(result.message);
+  } else if (!result) {
+    t.fail("CODECTRL_DEBUG environment variable is not present");
+  }
+
+  t.pass(result?.message);
+});

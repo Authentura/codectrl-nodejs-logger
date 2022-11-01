@@ -79,6 +79,21 @@ export class Logger {
     });
   }
 
+  public static async logWhenEnv<T extends { toString: () => string }>(
+    message: T,
+    surround?: number,
+    host?: string,
+    port?: string
+  ): Promise<RequestResult | null> {
+    if (process.env.CODECTRL_DEBUG) {
+      return await this.log(message, surround, host, port);
+    }
+
+    return new Promise(() => {
+      return;
+    });
+  }
+
   public static getStackTrace(log: Log) {
     Error.stackTraceLimit = Infinity;
 
@@ -95,6 +110,7 @@ export class Logger {
           functionName === "getStackTrace" ||
           functionName === "log" ||
           functionName === "logIf" ||
+          functionName === "logWhenEnv" ||
           functionName === "createLog"
         ) &&
         !(fileName.startsWith("node:") || fileName.includes("node_modules"))
