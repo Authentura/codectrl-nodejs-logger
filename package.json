@@ -32,17 +32,14 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.7.3",
     "@protobuf-ts/grpc-transport": "^2.8.1",
-    "@protobuf-ts/grpcweb-transport": "^2.8.1",
     "@protobuf-ts/plugin": "^2.8.1",
     "@protobuf-ts/protoc": "^2.8.1",
     "@protobuf-ts/runtime": "^2.8.1",
     "@protobuf-ts/runtime-rpc": "^2.8.1",
-    "abort-controller": "^3.0.0",
-    "ava": "^5.0.1",
-    "callsites": "^4.0.0",
-    "node-fetch": "^3.2.10"
+    "callsites": "^4.0.0"
   },
   "devDependencies": {
+    "ava": "^5.0.1",
     "@ava/typescript": "^3.0.1",
     "@types/glob": "^8.0.0",
     "@types/google-protobuf": "^3.15.6",
