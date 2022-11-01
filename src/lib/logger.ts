@@ -11,63 +11,43 @@ import { translate } from "../third-party/line-numbers.js";
 import { LogClient, RequestResult } from "./cc-service.js";
 import { BacktraceData, Log } from "./data.js";
 
-function createLog<T extends { toString: () => string }>(
-  message: T,
-  _surround: number,
-  functionName?: string,
-  functionNameOccurences?: MultiSet<string>
-): Log {
-  functionName = functionName ?? "";
-
-  const log = <Log>{
-    uuid: "",
-    stack: [] as BacktraceData[],
-    lineNumber: 0,
-    codeSnippet: {},
-    message: message.toString(),
-    messageType: typeof message,
-    fileName: "",
-    address: "",
-    language: "JavaScript",
-    warnings: [] as string[],
-  };
-
-  Logger.getStackTrace(log);
-
-  const last = log.stack.pop();
-  if (last) {
-    log.lineNumber = last.lineNumber;
-    log.fileName = last.filePath;
-
-    log.codeSnippet = Logger.getCodeSnippet(
-      last.filePath,
-      last.lineNumber,
-      _surround,
-      functionName,
-      functionNameOccurences
-    );
-
-    log.stack.push(last);
-  }
-
-  return log;
+/**
+ * A generic interface that simply requires that everything that implements it
+ * has a `toString` function.
+ */
+export interface ToString {
+  toString: () => string;
 }
 
 export class Logger {
-  public static async log<T extends { toString: () => string }>(
+  /**
+   * The basic log function.
+   *
+   * @param { T extends {toString: () => string } } message - The message to be
+   * sent to the logger. Accepts any `T` that implements a `toString` function.
+   *
+   * @param { number | null } surround - The amount of surrounding code to
+   * include in the code snippet.
+   *
+   * @param { string | null } host - The host of the CodeCTRL instance.
+   *
+   * @param { string | null } port - The port of the CodeCTRL instance.
+   *
+   */
+  public static async log<T extends ToString>(
     message: T,
-    _surround?: number,
-    _host?: string,
-    _port?: string
+    surround?: number,
+    host?: string,
+    port?: string
   ): Promise<RequestResult> {
-    const surround = _surround ?? 3;
-    const host = _host ?? "127.0.0.1";
-    const port = _port ?? "3002";
+    const __surround = surround ?? 3;
+    const __host = host ?? "127.0.0.1";
+    const __port = port ?? "3002";
 
-    const log = createLog(message, surround);
+    const log = this.createLog(message, __surround);
 
     const transport = new GrpcTransport({
-      host: `${host}:${port}`,
+      host: `${__host}:${__port}`,
       channelCredentials: ChannelCredentials.createInsecure(),
     });
     const client = new LogClient(transport);
@@ -76,7 +56,25 @@ export class Logger {
     return result;
   }
 
-  public static async logIf<T extends { toString: () => string }>(
+  /**
+   * A log function that takes an anonymous function, and only logs if the
+   * function returns a true condition.
+   *
+   * @param { () => boolean } condition - The anonymous function that
+   * determines whether a log is sent.
+   *
+   * @param { T extends {toString: () => string } } message - The message to be
+   * sent to the logger. Accepts any `T` that implements a `toString` function.
+   *
+   * @param { number | null } surround - The amount of surrounding code to
+   * include in the code snippet.
+   *
+   * @param { string | null } host - The host of the CodeCTRL instance.
+   *
+   * @param { string | null } port - The port of the CodeCTRL instance.
+   *
+   */
+  public static async logIf<T extends ToString>(
     condition: () => boolean,
     message: T,
     surround?: number,
@@ -92,7 +90,22 @@ export class Logger {
     });
   }
 
-  public static async logWhenEnv<T extends { toString: () => string }>(
+  /**
+   * A log function similar to `Logger.logIf` that only takes effect if the
+   * environment variable `CODECTRL_DEBUG` is present or not.
+   *
+   * @param { T extends {toString: () => string } } message - The message to be
+   * sent to the logger. Accepts any `T` that implements a `toString` function.
+   *
+   * @param { number | null } surround - The amount of surrounding code to
+   * include in the code snippet.
+   *
+   * @param { string | null } host - The host of the CodeCTRL instance.
+   *
+   * @param { string | null } port - The port of the CodeCTRL instance.
+   *
+   */
+  public static async logWhenEnv<T extends ToString>(
     message: T,
     surround?: number,
     host?: string,
@@ -107,7 +120,49 @@ export class Logger {
     });
   }
 
-  public static getStackTrace(log: Log) {
+  private static createLog<T extends ToString>(
+    message: T,
+    _surround: number,
+    functionName?: string,
+    functionNameOccurences?: MultiSet<string>
+  ): Log {
+    functionName = functionName ?? "";
+
+    const log = <Log>{
+      uuid: "",
+      stack: [] as BacktraceData[],
+      lineNumber: 0,
+      codeSnippet: {},
+      message: message.toString(),
+      messageType: typeof message,
+      fileName: "",
+      address: "",
+      language: "JavaScript",
+      warnings: [] as string[],
+    };
+
+    this.getStackTrace(log);
+
+    const last = log.stack.pop();
+    if (last) {
+      log.lineNumber = last.lineNumber;
+      log.fileName = last.filePath;
+
+      log.codeSnippet = this.getCodeSnippet(
+        last.filePath,
+        last.lineNumber,
+        _surround,
+        functionName,
+        functionNameOccurences
+      );
+
+      log.stack.push(last);
+    }
+
+    return log;
+  }
+
+  private static getStackTrace(log: Log) {
     Error.stackTraceLimit = Infinity;
 
     const stacklist: BacktraceData[] = [];
@@ -161,13 +216,13 @@ export class Logger {
     log.stack = stacklist;
   }
 
-  static getCode(filePath: string, lineNumber: number): string {
+  private static getCode(filePath: string, lineNumber: number): string {
     const file = fs.readFileSync(filePath, "utf8");
 
     return file.split("\n")[lineNumber].trim();
   }
 
-  static getCodeSnippet(
+  private static getCodeSnippet(
     filePath: string,
     lineNumber: number,
     surround: number,
