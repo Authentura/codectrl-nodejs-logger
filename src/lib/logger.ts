@@ -4,12 +4,13 @@ import * as fs from "node:fs";
 import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
-import { MultiSet } from "mnemonist";
+import mnemosist from "mnemonist";
 
 import { translate } from "../third-party/line-numbers.js";
 
 import { LogClient, RequestResult } from "./cc-service.js";
 import { BacktraceData, Log } from "./data.js";
+
 
 /**
  * A generic interface that simply requires that everything that implements it
@@ -17,6 +18,18 @@ import { BacktraceData, Log } from "./data.js";
  */
 export interface ToString {
   toString: () => string;
+}
+
+export class LogBatch<T extends ToString> {
+  private logBatch: Log[] = [];
+  private host = "127.0.0.1";
+  private port = "3002";
+  private surround = 3;
+  functionNameOccurences: mnemosist.MultiSet<string> = new mnemosist.MultiSet();
+
+  public constructor() {
+    return;
+  }
 }
 
 export class Logger {
@@ -124,7 +137,7 @@ export class Logger {
     message: T,
     _surround: number,
     functionName?: string,
-    functionNameOccurences?: MultiSet<string>
+    functionNameOccurences?: mnemosist.MultiSet<string>
   ): Log {
     functionName = functionName ?? "";
 
@@ -227,7 +240,7 @@ export class Logger {
     lineNumber: number,
     surround: number,
     functionName: string,
-    functionNameOccurences?: MultiSet<string>
+    functionNameOccurences?: mnemosist.MultiSet<string>
   ): { [key: number]: string } {
     const file = fs.readFileSync(filePath, "utf8");
     const fileData = file.split("\n");
@@ -239,13 +252,29 @@ export class Logger {
     });
 
     // TODO: for batch log sending
-    if (functionNameOccurences) {
-      if (functionName && functionName !== "") {
-        const offset = 1;
-        const occurences = functionNameOccurences.multiplicity(functionName);
-      }
+    // if (functionNameOccurences) {
+    //   if (functionName && functionName !== "") {
+    //     const offset = 1;
+    //     const occurences = functionNameOccurences.multiplicity(functionName);
+    //   }
+    // }
+
+    let offset = lineNumber - surround;
+
+    if (offset < 0) {
+      offset = 0;
     }
 
-    return lines;
+    let end = lineNumber + surround;
+    if (end > Number.MAX_SAFE_INTEGER) {
+      end = Number.MAX_SAFE_INTEGER;
+    }
+
+    const finalLines: { [key: number]: string } = {};
+
+    for (let i = offset; i <= end; i++)
+      finalLines[i] = lines[i];
+
+    return finalLines;
   }
 }

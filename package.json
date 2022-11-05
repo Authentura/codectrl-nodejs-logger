@@ -19,7 +19,7 @@
     "fix:lint": "eslint src --ext .ts --fix",
     "test:lint": "eslint src --ext .ts",
     "test:prettier": "prettier \"src/**/*.ts\" --list-different",
-    "test:run": "yarn build && ava",
+    "test:run": "ava",
     "watch:build": "tsc -p tsconfig.json -w",
     "watch:test": "nyc --silent ava --watch",
     "version": "standard-version",
@@ -78,8 +78,8 @@
   "ava": {
     "failFast": true,
     "timeout": "60s",
-    "require": [
-      "source-map-support/register"
+    "nodeArguments": [
+      "--experimental-specifier-resolution=node"
     ],
     "typescript": {
       "rewritePaths": {
