@@ -380,12 +380,6 @@ export class Logger {
     const file = fs.readFileSync(filePath, "utf8");
     const fileData = file.split("\n");
 
-    const lines: { [key: number]: string } = {};
-
-    fileData.forEach((line, _lineNumber, _) => {
-      lines[_lineNumber + 1] = line;
-    });
-
     let offset = lineNumber - surround;
 
     if (offset < 0) {
@@ -397,11 +391,11 @@ export class Logger {
       end = Number.MAX_SAFE_INTEGER;
     }
 
-    const finalLines: { [key: number]: string } = {};
+    const lines: { [key: number]: string } = {};
 
     for (let i = offset; i <= end; i++)
-      finalLines[i] = lines[i];
+      lines[i] = fileData[i - 1];
 
-    return finalLines;
+    return lines;
   }
 }

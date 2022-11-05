@@ -37,8 +37,7 @@
     "@protobuf-ts/protoc": "^2.8.1",
     "@protobuf-ts/runtime": "^2.8.1",
     "@protobuf-ts/runtime-rpc": "^2.8.1",
-    "callsites": "^4.0.0",
-    "mnemonist": "^0.39.5"
+    "callsites": "^4.0.0"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
