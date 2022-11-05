@@ -19,13 +19,17 @@ async function logLayerOne() {
 }
 
 test("Logger.log", async (t) => {
-  const result = await logLayerOne();
+  const result = (await logLayerOne()).unwrap();
 
-  if (result.status === RequestStatus.ERROR) {
-    t.fail(result.message);
+  if (result) {
+    if (result.status === RequestStatus.ERROR) {
+      t.fail(result.message);
+    }
+
+    t.pass(result.message);
   }
 
-  t.pass(result.message);
+  t.fail("result was null");
 });
 
 async function logIfLayerFinal() {
@@ -49,13 +53,20 @@ async function logIfLayerOne() {
 test("Logger.logIf", async (t) => {
   const result = await logIfLayerOne();
 
-  if (result && result.status === RequestStatus.ERROR) {
-    t.fail(result.message);
-  } else if (!result) {
-    t.fail("Condition was not true");
+  if (result) {
+    const res = result.unwrap();
+
+    if (res) {
+      if (res.status === RequestStatus.ERROR) {
+        t.fail(res.message);
+      }
+
+      t.pass(res.message);
+    }
+
   }
 
-  t.pass(result?.message);
+  t.fail("Condition was not true");
 });
 
 async function logWhenEnvLayerFinal() {
@@ -77,11 +88,25 @@ async function logWhenEnvLayerOne() {
 test("Logger.logWhenEnv", async (t) => {
   const result = await logWhenEnvLayerOne();
 
-  if (result && result.status === RequestStatus.ERROR) {
-    t.fail(result.message);
-  } else if (!result) {
-    t.fail("CODECTRL_DEBUG environment variable is not present");
+  if (result) {
+    const res = result.unwrap();
+
+    if (res) {
+
+      if (res.status === RequestStatus.ERROR) {
+        t.fail(res.message);
+      }
+
+      t.pass(res.message);
+    }
+
   }
 
-  t.pass(result?.message);
+  t.fail("CODECTRL_DEBUG environment variable is not present");
+});
+
+test("Log batch", async t => {
+  Logger.startBatch().addLog("Test").addLog("Hello").build().sendBatch();
+
+  t.pass();
 });

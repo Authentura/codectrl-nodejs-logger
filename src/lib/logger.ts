@@ -11,6 +11,36 @@ import { translate } from "../third-party/line-numbers.js";
 import { LogClient, RequestResult } from "./cc-service.js";
 import { BacktraceData, Log } from "./data.js";
 
+type Nothing = undefined;
+
+export enum LoggerError {
+  BATCH_EMPTY,
+  REQUEST_ERROR,
+}
+
+export class LoggerResult<T> {
+  private inner: T | LoggerError | null = null;
+
+  private constructor(inner: T | LoggerError) {
+    this.inner = inner;
+  }
+
+  public static Ok<T>(data: T): LoggerResult<T> {
+    return new LoggerResult(data);
+  }
+
+  public static Err<T>(error: LoggerError): LoggerResult<T> {
+    return new LoggerResult<T>(error);
+  }
+
+  public unwrap(): T | null {
+    if (this.inner as T != undefined)
+      return this.inner as T;
+
+    return null;
+  }
+}
+
 
 /**
  * A generic interface that simply requires that everything that implements it
@@ -52,7 +82,7 @@ export class Logger {
     surround?: number,
     host?: string,
     port?: string
-  ): Promise<RequestResult> {
+  ): Promise<LoggerResult<RequestResult>> {
     const __surround = surround ?? 3;
     const __host = host ?? "127.0.0.1";
     const __port = port ?? "3002";
@@ -66,7 +96,7 @@ export class Logger {
     const client = new LogClient(transport);
     const result = await client.sendLog(log).response;
 
-    return result;
+    return LoggerResult.Ok(result);
   }
 
   /**
@@ -93,14 +123,12 @@ export class Logger {
     surround?: number,
     host?: string,
     port?: string
-  ): Promise<RequestResult | null> {
+  ): Promise<LoggerResult<RequestResult | false>> {
     if (condition()) {
       return await this.log(message, surround, host, port);
     }
 
-    return new Promise(() => {
-      return;
-    });
+    return LoggerResult.Ok(false);
   }
 
   /**
@@ -123,17 +151,15 @@ export class Logger {
     surround?: number,
     host?: string,
     port?: string
-  ): Promise<RequestResult | null> {
+  ): Promise<LoggerResult<RequestResult | false>> {
     if (process.env.CODECTRL_DEBUG) {
       return await this.log(message, surround, host, port);
     }
 
-    return new Promise(() => {
-      return;
-    });
+    return LoggerResult.Ok(false);
   }
 
-  private static createLog<T extends ToString>(
+  public static createLog<T extends ToString>(
     message: T,
     _surround: number,
     functionName?: string,
@@ -250,6 +276,8 @@ export class Logger {
     fileData.forEach((line, _lineNumber, _) => {
       lines[_lineNumber + 1] = line;
     });
+
+
 
     // TODO: for batch log sending
     // if (functionNameOccurences) {
