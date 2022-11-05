@@ -2,23 +2,9 @@ import test from "ava";
 
 import { Logger, RequestStatus } from "./index.js";
 
-async function logLayerFinal() {
-  return await Logger.log("Log");
-}
+// TODO: Figure out why tests are "failing", even though they are working properly.
 
-async function logLayerThree() {
-  return await logLayerFinal();
-}
-
-async function logLayerTwo() {
-  return await logLayerThree();
-}
-
-async function logLayerOne() {
-  return await logLayerTwo();
-}
-
-test("Logger.log", async (t) => {
+test("Standard log", async (t) => {
   const result = (await logLayerOne()).unwrap();
 
   if (result) {
@@ -32,81 +18,111 @@ test("Logger.log", async (t) => {
   t.fail("result was null");
 });
 
-async function logIfLayerFinal() {
-  return await Logger.logIf(() => {
-    return true;
-  }, "Log if");
+test("Conditional log", async (t) => {
+  const result = (await logIfLayerOne()).unwrap();
+
+  if (result) {
+    if (result.status === RequestStatus.ERROR) {
+      t.fail(result.message);
+    }
+
+    t.pass(result.message);
+  }
+
+
+  t.fail("Condition was not true");
+});
+
+test("Conditional log (environment variable)", async (t) => {
+  const result = (await logWhenEnvLayerOne()).unwrap();
+
+  if (result) {
+    if (result.status === RequestStatus.ERROR) {
+      t.fail(result.message);
+    }
+
+    t.pass(result.message);
+  }
+
+  t.fail("CODECTRL_DEBUG environment variable is not present");
+});
+
+test("Batched logs", async t => {
+  await logBatchLayerOne();
+
+  t.pass();
+});
+
+async function logLayerOne() {
+  return await logLayerTwo();
 }
 
-async function logIfLayerThree() {
-  return await logIfLayerFinal();
+async function logLayerTwo() {
+  return await logLayerThree();
 }
 
-async function logIfLayerTwo() {
-  return await logIfLayerThree();
+async function logLayerThree() {
+  return await logLayerFinal();
+}
+
+async function logLayerFinal() {
+  return await Logger.log("Log");
 }
 
 async function logIfLayerOne() {
   return await logIfLayerTwo();
 }
 
-test("Logger.logIf", async (t) => {
-  const result = await logIfLayerOne();
-
-  if (result) {
-    const res = result.unwrap();
-
-    if (res) {
-      if (res.status === RequestStatus.ERROR) {
-        t.fail(res.message);
-      }
-
-      t.pass(res.message);
-    }
-
-  }
-
-  t.fail("Condition was not true");
-});
-
-async function logWhenEnvLayerFinal() {
-  return await Logger.logWhenEnv("Log when env");
+async function logIfLayerTwo() {
+  return await logIfLayerThree();
 }
 
-async function logWhenEnvLayerThree() {
-  return await logWhenEnvLayerFinal();
+async function logIfLayerThree() {
+  return await logIfLayerFinal();
 }
 
-async function logWhenEnvLayerTwo() {
-  return await logWhenEnvLayerThree();
+async function logIfLayerFinal() {
+  return await Logger.logIf(() => {
+    return true;
+  }, "Log if");
 }
 
 async function logWhenEnvLayerOne() {
   return await logWhenEnvLayerTwo();
 }
 
-test("Logger.logWhenEnv", async (t) => {
-  const result = await logWhenEnvLayerOne();
+async function logWhenEnvLayerTwo() {
+  return await logWhenEnvLayerThree();
+}
 
-  if (result) {
-    const res = result.unwrap();
+async function logWhenEnvLayerThree() {
+  return await logWhenEnvLayerFinal();
+}
 
-    if (res) {
+async function logWhenEnvLayerFinal() {
+  return await Logger.logWhenEnv("Log when env");
+}
 
-      if (res.status === RequestStatus.ERROR) {
-        t.fail(res.message);
-      }
+async function logBatchLayerOne() {
+  return await logBatchLayerTwo();
+}
 
-      t.pass(res.message);
-    }
+async function logBatchLayerTwo() {
+  return await logBatchLayerThree();
+}
 
-  }
+async function logBatchLayerThree() {
+  return await logBatchLayerFinal();
+}
 
-  t.fail("CODECTRL_DEBUG environment variable is not present");
-});
-
-test("Log batch", async t => {
-  Logger.startBatch().addLog("Test").addLog("Hello").build().sendBatch();
-
-  t.pass();
-});
+async function logBatchLayerFinal() {
+  return await Logger
+    .startBatch()
+    .addLog(new Date())
+    .addLog("Batched hello")
+    .addLogIf(() => { return true }, "Batched hello conditional")
+    .addLogIf(() => { return false }, "This won't show")
+    .addLogWhenEnv("Batched env")
+    .build()
+    .sendBatch();
+}

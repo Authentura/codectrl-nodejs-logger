@@ -4,14 +4,17 @@ import * as fs from "node:fs";
 import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
-import mnemosist from "mnemonist";
 
 import { translate } from "../third-party/line-numbers.js";
 
-import { LogClient, RequestResult } from "./cc-service.js";
+import { LogClient, RequestResult, RequestStatus } from "./cc-service.js";
 import { BacktraceData, Log } from "./data.js";
 
+// TODO(STBoyden): Docmentation!
+
 type Nothing = undefined;
+
+export type ErrorMessage = string;
 
 export enum LoggerError {
   BATCH_EMPTY,
@@ -20,27 +23,31 @@ export enum LoggerError {
 
 export class LoggerResult<T> {
   private inner: T | LoggerError | null = null;
+  private message?: string;
 
-  private constructor(inner: T | LoggerError) {
+  private constructor(inner: T | LoggerError, message?: string) {
     this.inner = inner;
+    this.message = message;
   }
 
   public static Ok<T>(data: T): LoggerResult<T> {
     return new LoggerResult(data);
   }
 
-  public static Err<T>(error: LoggerError): LoggerResult<T> {
-    return new LoggerResult<T>(error);
+  public static Err<T>(error: LoggerError, message?: string): LoggerResult<T> {
+    return new LoggerResult<T>(error, message);
   }
 
   public unwrap(): T | null {
     if (this.inner as T != undefined)
       return this.inner as T;
 
+    if (this.message)
+      console.error(this.message);
+
     return null;
   }
 }
-
 
 /**
  * A generic interface that simply requires that everything that implements it
@@ -50,19 +57,125 @@ export interface ToString {
   toString: () => string;
 }
 
-export class LogBatch<T extends ToString> {
+class LogBatch {
   private logBatch: Log[] = [];
   private host = "127.0.0.1";
   private port = "3002";
   private surround = 3;
-  functionNameOccurences: mnemosist.MultiSet<string> = new mnemosist.MultiSet();
+  private logger: Logger | null = null;
 
-  public constructor() {
-    return;
+  public setHost(host: string): this {
+    this.host = host;
+
+    return this;
+  }
+
+  public setPort(port: string): this {
+    this.port = port;
+
+    return this;
+  }
+
+  public setSurround(surround: number): this {
+    this.surround = surround;
+
+    return this;
+  }
+
+
+  public addLog<T extends ToString>(message: T, surround?: number): this {
+    const _surround = surround ?? this.surround;
+
+
+    this.logBatch.push(
+      Logger.createLog(
+        message,
+        _surround,
+      )
+    );
+
+    return this;
+  }
+
+  public addLogIf<T extends ToString>(condition: () => boolean, message: T, surround?: number): this {
+    const _surround = surround ?? this.surround;
+
+
+    if (condition())
+      this.logBatch.push(
+        Logger.createLog(
+          message,
+          _surround,
+        )
+      );
+
+    return this;
+  }
+
+
+  public addLogWhenEnv<T extends ToString>(message: T, surround?: number): this {
+    const _surround = surround ?? this.surround;
+
+
+    if (process.env.CODECTRL_DEBUG)
+      this.logBatch.push(
+        Logger.createLog(
+          message,
+          _surround,
+        )
+      );
+
+    return this;
+  }
+
+  public build(): Logger {
+    this.logger = new Logger(this.logBatch, this.host, this.port);
+
+    return this.logger;
   }
 }
 
 export class Logger {
+  private logBatch: Log[];
+  private batchHost: string;
+  private batchPort: string;
+
+  public constructor(logs: Log[], host: string, port: string) {
+    this.logBatch = logs;
+    this.batchHost = host;
+    this.batchPort = port;
+  }
+
+  public static startBatch(): LogBatch {
+    return new LogBatch();
+  }
+
+  public async sendBatch(): Promise<LoggerResult<Nothing>> {
+    if (this.logBatch.length === 0) {
+      return LoggerResult.Err(LoggerError.BATCH_EMPTY);
+    }
+
+    const transport = new GrpcTransport({
+      host: `${this.batchHost}:${this.batchPort}`,
+      channelCredentials: ChannelCredentials.createInsecure(),
+    });
+    const client = new LogClient(transport);
+    const call = client.sendLogs({});
+
+    this.logBatch.forEach(
+      async (log, _index, _arr) => await call.requests.send(log)
+    );
+
+    await call.requests.complete();
+
+    const result = await call.response;
+
+    if (result.status === RequestStatus.ERROR) // TODO: check auth
+      return LoggerResult.Err(LoggerError.REQUEST_ERROR, result.message);
+
+    return LoggerResult.Ok(undefined);
+  }
+
   /**
    * The basic log function.
    *
@@ -162,10 +275,7 @@ export class Logger {
   public static createLog<T extends ToString>(
     message: T,
     _surround: number,
-    functionName?: string,
-    functionNameOccurences?: mnemosist.MultiSet<string>
   ): Log {
-    functionName = functionName ?? "";
 
     const log = <Log>{
       uuid: "",
@@ -191,8 +301,6 @@ export class Logger {
         last.filePath,
         last.lineNumber,
         _surround,
-        functionName,
-        functionNameOccurences
       );
 
       log.stack.push(last);
@@ -218,6 +326,9 @@ export class Logger {
           functionName === "log" ||
           functionName === "logIf" ||
           functionName === "logWhenEnv" ||
+          functionName === "addLog" ||
+          functionName === "addLogIf" ||
+          functionName === "addLogWhenEnv" ||
           functionName === "createLog"
         ) &&
         !(fileName.startsWith("node:") || fileName.includes("node_modules"))
@@ -265,8 +376,6 @@ export class Logger {
     filePath: string,
     lineNumber: number,
     surround: number,
-    functionName: string,
-    functionNameOccurences?: mnemosist.MultiSet<string>
   ): { [key: number]: string } {
     const file = fs.readFileSync(filePath, "utf8");
     const fileData = file.split("\n");
@@ -276,16 +385,6 @@ export class Logger {
     fileData.forEach((line, _lineNumber, _) => {
       lines[_lineNumber + 1] = line;
     });
-
-
-
-    // TODO: for batch log sending
-    // if (functionNameOccurences) {
-    //   if (functionName && functionName !== "") {
-    //     const offset = 1;
-    //     const occurences = functionNameOccurences.multiplicity(functionName);
-    //   }
-    // }
 
     let offset = lineNumber - surround;
 
