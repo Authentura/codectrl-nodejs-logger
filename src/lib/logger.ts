@@ -1,7 +1,7 @@
 import { findSourceMap } from "module";
 import * as fs from "node:fs";
 
-import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
+import { ChannelCredentials } from "@grpc/grpc-js";
 import { GrpcTransport } from "@protobuf-ts/grpc-transport";
 import callsites from "callsites";
 
@@ -16,11 +16,19 @@ type Nothing = undefined;
 
 export type ErrorMessage = string;
 
+/**
+ * An enum that describes the nature of the error returned by any of the `log`
+ * functions.
+ */
 export enum LoggerError {
   BATCH_EMPTY,
   REQUEST_ERROR,
 }
 
+/**
+ * A "result" type that is used in conjuction with the `LoggerError` enum to
+ * describe and handle a possible error returned from the `log` functions.
+ */
 export class LoggerResult<T> {
   private inner: T | LoggerError | null = null;
   private message?: string;
@@ -30,22 +38,65 @@ export class LoggerResult<T> {
     this.message = message;
   }
 
+  /**
+   * Create a new `LoggerResult<T>` that is guaranteed to have an `inner` data
+   * of type `T`.
+   *
+   * @param { T } data - The `T` data to insert into the inner value of this result type.
+   */
   public static Ok<T>(data: T): LoggerResult<T> {
     return new LoggerResult(data);
   }
 
+  /**
+   * Create a new `LoggerResult<T>` that is guaranteed to have an `inner` data
+   * of `LoggerError` with an optional accompanying `message` string.
+   *
+   * @param { LoggerError } error - The enum describes the reason behind the error.
+   * @param { string | undefined } message - The optional message for additional context to the `error`.
+   */
   public static Err<T>(error: LoggerError, message?: string): LoggerResult<T> {
     return new LoggerResult<T>(error, message);
   }
 
+  /**
+   * Returns the `T` value if the `inner` value is expected to be `T`,
+   * otherwise return `null`.
+   */
   public unwrap(): T | null {
-    if (this.inner as T != undefined)
-      return this.inner as T;
+    if ((this.inner as T) !== undefined) return this.inner as T;
 
-    if (this.message)
-      console.error(this.message);
+    if (this.message) console.error(this.message);
 
     return null;
+  }
+
+  /**
+   * Returns an object containing the `inner` data and the optional message if
+   * it is expected to be a `LoggerError`, otherwise return `null`.
+   */
+  public unwrapErr(): {
+    error: LoggerError;
+    message: string | undefined;
+  } | null {
+    if ((this.inner as LoggerError) !== undefined)
+      return { error: this.inner as LoggerError, message: this.message };
+
+    return null;
+  }
+
+  /**
+   * Returns whether or not the inner value of this result type is `T`.
+   */
+  public isOk(): boolean {
+    return (this.inner as T) !== undefined;
+  }
+
+  /**
+   * Returns whether or not the inner value of this result type is `LoggerError`.
+   */
+  public isErr(): boolean {
+    return (this.inner as LoggerError) !== undefined;
   }
 }
 
@@ -57,77 +108,108 @@ export interface ToString {
   toString: () => string;
 }
 
-class LogBatch {
+/**
+ * The `LogBatch` helper class to help with creating multiple logs without
+ * sending, and sending the created logs at a chosen point in time. Use in
+ * conjunction with `Logger.startBatch()` and `Logger.sendBatch()`.
+ */
+export class LogBatch {
   private logBatch: Log[] = [];
   private host = "127.0.0.1";
   private port = "3002";
   private surround = 3;
   private logger: Logger | null = null;
 
+  /**
+   * Set the `host` for this batch of logs.
+   *
+   * @param { string } host - This hostname/IP/domain of the remote CodeCTRL server.
+   */
   public setHost(host: string): this {
     this.host = host;
 
     return this;
   }
 
+  /**
+   * Set the `port` for this batch of logs.
+   *
+   * @param { string } port - The port of that the remote CodeCTRL server is listening on.
+   */
   public setPort(port: string): this {
     this.port = port;
 
     return this;
   }
 
+  /**
+   * Set the `surround` for this batch of logs.
+   *
+   * @param { number } surround - The amount of code lines to include in the code snippet surrounding the log line.
+   */
   public setSurround(surround: number): this {
     this.surround = surround;
 
     return this;
   }
 
-
+  /**
+   * Adds a `log` to the current `LogBatch`.
+   *
+   * @param { T } message - The message for the current log.
+   * @param { number | undefined } surround - The optional surrounding amount of code lines to include in the code snippet.
+   */
   public addLog<T extends ToString>(message: T, surround?: number): this {
     const _surround = surround ?? this.surround;
 
-
-    this.logBatch.push(
-      Logger.createLog(
-        message,
-        _surround,
-      )
-    );
+    this.logBatch.push(Logger.createLog(message, _surround));
 
     return this;
   }
 
-  public addLogIf<T extends ToString>(condition: () => boolean, message: T, surround?: number): this {
+  /**
+   * Adds a `log` to the current `LogBatch` that only sends if the `condition`
+   * resolves to `true`.
+   *
+   * @param { () => boolean } condition - The condition function that determines whether the log gets sent to the remote.
+   * @param { T } message - The message for the current log.
+   * @param { number | undefined } surround - The optional surrounding amount of code lines to include in the code snippet.
+   */
+  public addLogIf<T extends ToString>(
+    condition: () => boolean,
+    message: T,
+    surround?: number
+  ): this {
     const _surround = surround ?? this.surround;
 
-
-    if (condition())
-      this.logBatch.push(
-        Logger.createLog(
-          message,
-          _surround,
-        )
-      );
+    if (condition()) this.logBatch.push(Logger.createLog(message, _surround));
 
     return this;
   }
 
-
-  public addLogWhenEnv<T extends ToString>(message: T, surround?: number): this {
+  /**
+   * Adds a `log` to the current `LogBatch` if the `CODECTRL_DEBUG` environment
+   * variable is present.
+   *
+   * @param { T } message - The message for the current log.
+   * @param { number | undefined } surround - The optional surrounding amount of code lines to include in the code snippet.
+   */
+  public addLogWhenEnv<T extends ToString>(
+    message: T,
+    surround?: number
+  ): this {
     const _surround = surround ?? this.surround;
-
 
     if (process.env.CODECTRL_DEBUG)
-      this.logBatch.push(
-        Logger.createLog(
-          message,
-          _surround,
-        )
-      );
+      this.logBatch.push(Logger.createLog(message, _surround));
 
     return this;
   }
 
+  /**
+   * Creates the final `Logger` that will be used to send the batch of logs
+   * created with the `addLog`, `addLogIf` and `addLogWhenEnv` functions.
+   */
   public build(): Logger {
     this.logger = new Logger(this.logBatch, this.host, this.port);
 
@@ -140,16 +222,30 @@ export class Logger {
   private batchHost: string;
   private batchPort: string;
 
+  /**
+   * Creates a new `Logger` with a pre-defined log batch, hostname and port.
+   *
+   * @param { Log[] } logs - The log batch to be sent with this `Logger`.
+   * @param { string } host - The hostname/IP/domain of the remote CodeCTRL server for this batch to be sent to.
+   * @param { string } port - The port that the remote CodeCTRL server is listening on.
+   */
   public constructor(logs: Log[], host: string, port: string) {
     this.logBatch = logs;
     this.batchHost = host;
     this.batchPort = port;
   }
 
+  /**
+   * Starts a new `LogBatch` to add multiple logs at once.
+   */
   public static startBatch(): LogBatch {
     return new LogBatch();
   }
 
+  /**
+   * Sends the current `logBatch` created created by the `LogBatch` helper
+   * class or the constructor of this class.
+   */
   public async sendBatch(): Promise<LoggerResult<Nothing>> {
     if (this.logBatch.length === 0) {
       return LoggerResult.Err(LoggerError.BATCH_EMPTY);
@@ -170,7 +266,8 @@ export class Logger {
 
     const result = await call.response;
 
-    if (result.status === RequestStatus.ERROR) // TODO: check auth
+    if (result.status === RequestStatus.ERROR)
+      // TODO: check auth
       return LoggerResult.Err(LoggerError.REQUEST_ERROR, result.message);
 
     return LoggerResult.Ok(undefined);
@@ -274,9 +371,8 @@ export class Logger {
 
   public static createLog<T extends ToString>(
     message: T,
-    _surround: number,
+    _surround: number
   ): Log {
-
     const log = <Log>{
       uuid: "",
       stack: [] as BacktraceData[],
@@ -300,7 +396,7 @@ export class Logger {
       log.codeSnippet = this.getCodeSnippet(
         last.filePath,
         last.lineNumber,
-        _surround,
+        _surround
       );
 
       log.stack.push(last);
@@ -375,7 +471,7 @@ export class Logger {
   private static getCodeSnippet(
     filePath: string,
     lineNumber: number,
-    surround: number,
+    surround: number
   ): { [key: number]: string } {
     const file = fs.readFileSync(filePath, "utf8");
     const fileData = file.split("\n");
@@ -393,8 +489,7 @@ export class Logger {
 
     const lines: { [key: number]: string } = {};
 
-    for (let i = offset; i <= end; i++)
-      lines[i] = fileData[i - 1];
+    for (let i = offset; i <= end; i++) lines[i] = fileData[i - 1];
 
     return lines;
   }
