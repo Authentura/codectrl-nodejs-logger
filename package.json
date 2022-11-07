@@ -1,5 +1,5 @@
 {
-  "name": "codectrl",
+  "name": "@authentura/codectrl",
   "version": "1.0.0",
   "description": "The NodeJS logger integration for CodeCTRL",
   "exports": "./build/main/index.js",
