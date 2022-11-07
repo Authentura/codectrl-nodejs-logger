@@ -25,7 +25,7 @@ concurrency:
 jobs:
   # Single deploy job since we're just deploying
   deploy_push:
-    if: github.event_name == "push"
+    if: github.event_name == 'push'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}/nightly
@@ -45,7 +45,7 @@ jobs:
         uses: actions/deploy-pages@v1
         
   deploy_release:
-    if: github.event_name == "release"
+    if: github.event_name == 'release'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}/latest-release
