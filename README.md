@@ -2,7 +2,7 @@
 
 This is the offical NodeJS logger integration for CodeCTRL. Documentation for the current
 commit on `main` can be found at:
-[authentura.github.io/codectrl-nodejs-logger](authentura.github.io/codectrl-nodejs-logger).
+[authentura.github.io/codectrl-nodejs-logger](https://authentura.github.io/codectrl-nodejs-logger).
 
 Documentation for the current release: (WIP).
 
